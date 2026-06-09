@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "whatsapp-api-mobile",
+    "name": "Digital API",
     "slug": "whatsapp-api-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.rakeshsainix.whatsappapimobile"
     },
     "web": {
       "output": "static",
@@ -39,6 +40,18 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e620cd27-4535-4b33-8b0e-368fc7f633ba"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e620cd27-4535-4b33-8b0e-368fc7f633ba"
     }
   }
 }

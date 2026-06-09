@@ -1,23 +1,32 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-
-const API_BASE = 'https://digital-orra-api.vercel.app';
+import { useApi } from '../context/ApiContext';
 
 export default function ChatView() {
   const { phone } = useLocalSearchParams();
   const [session, setSession] = useState(null);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [renameModal, setRenameModal] = useState(false);
+  const [newName, setNewName] = useState('');
   const scrollViewRef = useRef(null);
+  const { apiUrl } = useApi();
 
   const fetchChat = async () => {
+    if (!apiUrl) return;
     try {
-      const res = await fetch(`${API_BASE}/api/chats/${phone}`);
+      const res = await fetch(`${apiUrl}/api/chats/${phone}`);
       const data = await res.json();
-      if (!data.error) setSession(data);
+      if (!data.error) {
+        setSession(data);
+      } else {
+        // Fallback for new chats that don't exist in DB yet
+        setSession({ phone, aiEnabled: true, pausedUntil: null, history: [] });
+      }
     } catch (err) {
       console.error(err);
+      setSession({ phone, aiEnabled: true, pausedUntil: null, history: [] });
     }
   };
 
@@ -25,38 +34,52 @@ export default function ChatView() {
     fetchChat();
     const interval = setInterval(fetchChat, 3000);
     return () => clearInterval(interval);
-  }, [phone]);
+  }, [phone, apiUrl]);
 
   const toggleAI = async () => {
-    await fetch(`${API_BASE}/api/toggle-ai`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: phone, aiEnabled: !session.aiEnabled })
-    });
-    fetchChat();
+    if (!apiUrl) return;
+    try {
+      await fetch(`${apiUrl}/api/sessions/ai`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: phone, aiEnabled: !session.aiEnabled })
+      });
+      fetchChat();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const togglePause = async () => {
-    const isPaused = session.pausedUntil && new Date(session.pausedUntil) > new Date();
-    const endpoint = isPaused ? '/api/resume' : '/api/pause';
-    await fetch(`${API_BASE}${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: phone })
-    });
-    fetchChat();
+    if (!apiUrl) return;
+    try {
+      const isPaused = session.pausedUntil && new Date(session.pausedUntil) > new Date();
+      const endpoint = isPaused ? '/api/sessions/resume' : '/api/sessions/pause';
+      await fetch(`${apiUrl}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: phone })
+      });
+      fetchChat();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const sendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || !apiUrl) return;
     setSending(true);
+    
+    const tempMsg = { role: 'user', content: message, timestamp: new Date() };
+    setSession(prev => ({ ...prev, history: [...prev.history, tempMsg] }));
+    setMessage('');
+
     try {
-      await fetch(`${API_BASE}/send-message`, {
+      await fetch(`${apiUrl}/api/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: phone, message })
+        body: JSON.stringify({ to: phone, message: tempMsg.content })
       });
-      setMessage('');
       fetchChat();
     } catch (err) {
       console.error(err);
@@ -69,9 +92,33 @@ export default function ChatView() {
 
   const isPaused = session.pausedUntil && new Date(session.pausedUntil) > new Date();
 
+  const handleRename = async () => {
+    if (!apiUrl) return;
+    try {
+      await fetch(`${apiUrl}/api/sessions/name`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: phone, name: newName })
+      });
+      setRenameModal(false);
+      fetchChat();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
-      <Stack.Screen options={{ title: Array.isArray(phone) ? phone[0] : phone }} />
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}>
+      <Stack.Screen 
+        options={{ 
+          title: session.name ? session.name : (Array.isArray(phone) ? phone[0] : phone),
+          headerRight: () => (
+            <TouchableOpacity onPress={() => { setNewName(session.name || ''); setRenameModal(true); }}>
+              <Text style={{color: '#4ade80', fontWeight: 'bold', marginRight: 15}}>Rename</Text>
+            </TouchableOpacity>
+          )
+        }} 
+      />
       
       <View style={styles.controls}>
         <TouchableOpacity style={[styles.btn, session.aiEnabled ? styles.btnActive : styles.btnDanger]} onPress={toggleAI}>
@@ -107,6 +154,30 @@ export default function ChatView() {
           <Text style={styles.sendBtnText}>{sending ? '...' : 'Send'}</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal animationType="slide" transparent={true} visible={renameModal} onRequestClose={() => setRenameModal(false)}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' }}>
+          <View style={{ width: '85%', backgroundColor: '#1f2937', padding: 20, borderRadius: 15 }}>
+            <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 15 }}>Rename Contact</Text>
+            <TextInput
+              style={{ backgroundColor: '#111827', color: '#fff', padding: 15, borderRadius: 10, fontSize: 16, marginBottom: 20 }}
+              placeholder="Enter name"
+              placeholderTextColor="#6b7280"
+              value={newName}
+              onChangeText={setNewName}
+            />
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+              <TouchableOpacity style={{ padding: 12, borderRadius: 8, backgroundColor: '#374151' }} onPress={() => setRenameModal(false)}>
+                <Text style={{ color: '#fff', fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ padding: 12, borderRadius: 8, backgroundColor: '#4ade80' }} onPress={handleRename}>
+                <Text style={{ color: '#000', fontWeight: 'bold' }}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </KeyboardAvoidingView>
   );
 }

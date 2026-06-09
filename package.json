@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~56.0.16",
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "expo": "~56.0.9",
     "expo-constants": "~56.0.17",
     "expo-device": "~56.0.4",
@@ -11,11 +12,13 @@
     "expo-glass-effect": "~56.0.4",
     "expo-image": "~56.0.10",
     "expo-linking": "~56.0.13",
+    "expo-notifications": "^56.0.16",
     "expo-router": "~56.2.9",
     "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "~56.0.4",
     "expo-symbols": "~56.0.6",
     "expo-system-ui": "~56.0.5",
+    "expo-updates": "~56.0.18",
     "expo-web-browser": "~56.0.5",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -34,8 +37,8 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint"
   },

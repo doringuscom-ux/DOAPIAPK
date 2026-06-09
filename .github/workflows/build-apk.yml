@@ -33,8 +33,11 @@ jobs:
         run: npx expo prebuild --platform android
 
       - name: Build APK
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
         run: |
           cd android
+          chmod +x gradlew
           ./gradlew assembleRelease
 
       - name: Upload APK

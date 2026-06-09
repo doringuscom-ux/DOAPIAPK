@@ -12,6 +12,7 @@ export default function Dashboard() {
   const [apiModalVisible, setApiModalVisible] = useState(false);
   const [newApiName, setNewApiName] = useState('');
   const [newApiUrl, setNewApiUrl] = useState('https://');
+  const [fetchError, setFetchError] = useState('');
   const router = useRouter();
   const { apiUrl, apiList, setActiveApi, addApi, removeApi } = useApi();
 
@@ -22,10 +23,13 @@ export default function Dashboard() {
     }
     try {
       const res = await fetch(`${apiUrl}/api/sessions`);
+      if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
       setSessions(data);
+      setFetchError('');
     } catch (err) {
       console.error(err);
+      setFetchError(err.message || 'Failed to connect to API');
     } finally {
       setLoading(false);
     }
@@ -47,7 +51,7 @@ export default function Dashboard() {
   }
 
   const filteredSessions = sessions.filter(s => 
-    s.phone.includes(searchQuery) || 
+    (s.phone && String(s.phone).includes(searchQuery)) || 
     (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (s.lastMessage && s.lastMessage.toLowerCase().includes(searchQuery.toLowerCase()))
   );
@@ -81,6 +85,14 @@ export default function Dashboard() {
         value={searchQuery}
         onChangeText={setSearchQuery}
       />
+      
+      {fetchError ? (
+        <View style={{padding: 20, alignItems: 'center'}}>
+          <Text style={{color: '#ef4444', textAlign: 'center'}}>{fetchError}</Text>
+          <Text style={{color: '#9ca3af', textAlign: 'center', marginTop: 10, fontSize: 12}}>Check if your API URL is correct.</Text>
+        </View>
+      ) : null}
+
       <FlatList
         data={filteredSessions}
         keyExtractor={(item) => item.phone}

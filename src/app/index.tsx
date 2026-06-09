@@ -32,7 +32,10 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (!apiUrl) return;
+    if (!apiUrl) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetchSessions();
     const interval = setInterval(fetchSessions, 5000);

@@ -6,6 +6,14 @@ import * as Notifications from 'expo-notifications';
 
 const DEFAULT_API = '';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
 export const ApiContext = createContext({
   apiUrl: '',
   apiList: [],

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '../context/ApiContext';
 
 export default function Dashboard() {
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [newApiUrl, setNewApiUrl] = useState('https://');
   const [fetchError, setFetchError] = useState('');
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { apiUrl, apiList, setActiveApi, addApi, removeApi } = useApi();
 
   const fetchSessions = async () => {
@@ -122,7 +124,7 @@ export default function Dashboard() {
         )}
       />
 
-      <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)}>
+      <TouchableOpacity style={[styles.fab, { bottom: Math.max(20, insets.bottom + 10) }]} onPress={() => setModalVisible(true)}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 

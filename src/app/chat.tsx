@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '../context/ApiContext';
 
 export default function ChatView() {
@@ -12,6 +13,7 @@ export default function ChatView() {
   const [newName, setNewName] = useState('');
   const scrollViewRef = useRef(null);
   const { apiUrl } = useApi();
+  const insets = useSafeAreaInsets();
 
   const fetchChat = async () => {
     if (!apiUrl) return;
@@ -142,7 +144,7 @@ export default function ChatView() {
         ))}
       </ScrollView>
 
-      <View style={styles.inputArea}>
+      <View style={[styles.inputArea, { paddingBottom: Math.max(10, insets.bottom) }]}>
         <TextInput 
           style={styles.input} 
           value={message} 

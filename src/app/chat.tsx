@@ -43,7 +43,7 @@ export default function ChatView() {
   const toggleAI = async () => {
     if (!apiUrl) return;
     try {
-      await fetch(`${apiUrl}/api/sessions/ai`, {
+      await fetch(`${apiUrl}/api/toggle-ai`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: phone, aiEnabled: !session.aiEnabled })
@@ -58,7 +58,7 @@ export default function ChatView() {
     if (!apiUrl) return;
     try {
       const isPaused = session.pausedUntil && new Date(session.pausedUntil) > new Date();
-      const endpoint = isPaused ? '/api/sessions/resume' : '/api/sessions/pause';
+      const endpoint = isPaused ? '/api/resume' : '/api/pause';
       await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -79,7 +79,7 @@ export default function ChatView() {
     setMessage('');
 
     try {
-      await fetch(`${apiUrl}/api/send`, {
+      await fetch(`${apiUrl}/send-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ to: phone, message: tempMsg.content })

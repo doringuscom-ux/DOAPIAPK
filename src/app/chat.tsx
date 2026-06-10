@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Keyboard } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
+import { EmojiKeyboard } from 'rn-emoji-keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '../context/ApiContext';
 
@@ -11,6 +12,7 @@ export default function ChatView() {
   const [sending, setSending] = useState(false);
   const [renameModal, setRenameModal] = useState(false);
   const [newName, setNewName] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const scrollViewRef = useRef(null);
   const { apiUrl } = useApi();
   const insets = useSafeAreaInsets();
@@ -145,17 +147,41 @@ export default function ChatView() {
       </ScrollView>
 
       <View style={[styles.inputArea, { paddingBottom: Math.max(10, insets.bottom) }]}>
+        <TouchableOpacity 
+          style={styles.emojiBtn} 
+          onPress={() => {
+            if (showEmojiPicker) {
+              setShowEmojiPicker(false);
+            } else {
+              Keyboard.dismiss();
+              setShowEmojiPicker(true);
+            }
+          }}
+        >
+          <Text style={styles.emojiBtnText}>😊</Text>
+        </TouchableOpacity>
         <TextInput 
           style={styles.input} 
           value={message} 
           onChangeText={setMessage} 
           placeholder="Type a message..." 
           placeholderTextColor="#666" 
+          onFocus={() => setShowEmojiPicker(false)}
         />
         <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} disabled={sending}>
           <Text style={styles.sendBtnText}>{sending ? '...' : 'Send'}</Text>
         </TouchableOpacity>
       </View>
+
+      {showEmojiPicker && (
+        <View style={{ height: 350, width: '100%', backgroundColor: '#1f2937' }}>
+          <EmojiKeyboard
+            onEmojiSelected={(emoji) => setMessage(prev => prev + emoji.emoji)}
+            theme={{ container: '#1f2937', header: '#ffffff' }}
+            hideHeader={false}
+          />
+        </View>
+      )}
 
       <Modal animationType="slide" transparent={true} visible={renameModal} onRequestClose={() => setRenameModal(false)}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)' }}>
@@ -200,7 +226,9 @@ const styles = StyleSheet.create({
   bubbleBot: { backgroundColor: '#2563eb', alignSelf: 'flex-end', borderBottomRightRadius: 2 },
   msgText: { color: '#fff', fontSize: 15 },
   inputArea: { flexDirection: 'row', padding: 10, borderTopWidth: 1, borderTopColor: '#333', alignItems: 'center' },
-  input: { flex: 1, backgroundColor: '#1a1a1a', color: '#fff', padding: 12, borderRadius: 20, marginRight: 10 },
+  emojiBtn: { padding: 10, marginRight: 5 },
+  emojiBtnText: { fontSize: 24 },
+  input: { flex: 1, backgroundColor: '#111827', color: '#fff', padding: 12, borderRadius: 20, marginRight: 10 },
   sendBtn: { backgroundColor: '#4ade80', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 20 },
   sendBtnText: { color: '#000', fontWeight: 'bold' }
 });

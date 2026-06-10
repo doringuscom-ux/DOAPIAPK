@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "517128768001",
+    "project_id": "digital-orra-d22ac",
+    "storage_bucket": "digital-orra-d22ac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:517128768001:android:11f4e22a86f52bf13d4e00",
+        "android_client_info": {
+          "package_name": "com.rakeshsainix.whatsappapimobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCjlxz0aCxKOnE5-ipXUl3K5TfCqJQmrqA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

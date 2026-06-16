@@ -7,7 +7,7 @@ import * as Notifications from 'expo-notifications';
 const DEFAULT_API = '';
 
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
+  handleNotification: async (): Promise<any> => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
@@ -16,10 +16,10 @@ Notifications.setNotificationHandler({
 
 export const ApiContext = createContext({
   apiUrl: '',
-  apiList: [],
-  setActiveApi: (url) => {},
-  addApi: (name, url) => {},
-  removeApi: (url) => {}
+  apiList: [] as any[],
+  setActiveApi: (url: string) => {},
+  addApi: (name: string, url: string) => {},
+  removeApi: (url: string) => {}
 });
 
 export const useApi = () => useContext(ApiContext);
@@ -52,9 +52,9 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
-export const ApiProvider = ({ children }) => {
+export const ApiProvider = ({ children }: any) => {
   const [apiUrl, setApiUrl] = useState('');
-  const [apiList, setApiList] = useState([]);
+  const [apiList, setApiList] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
@@ -86,12 +86,12 @@ export const ApiProvider = ({ children }) => {
     }
   };
 
-  const setActiveApi = async (url) => {
+  const setActiveApi = async (url: string) => {
     setApiUrl(url);
     await AsyncStorage.setItem('@active_api', url);
   };
 
-  const addApi = async (name, url) => {
+  const addApi = async (name: string, url: string) => {
     const formattedUrl = url.replace(/\/+$/, ''); // remove trailing slash
     const newList = [...apiList, { name, url: formattedUrl }];
     setApiList(newList);
@@ -99,8 +99,8 @@ export const ApiProvider = ({ children }) => {
     if (newList.length === 1) setActiveApi(formattedUrl);
   };
 
-  const removeApi = async (url) => {
-    const newList = apiList.filter(api => api.url !== url);
+  const removeApi = async (url: string) => {
+    const newList = apiList.filter((api: any) => api.url !== url);
     setApiList(newList);
     await AsyncStorage.setItem('@api_list', JSON.stringify(newList));
     if (apiUrl === url) {

@@ -7,13 +7,13 @@ import { useApi } from '../context/ApiContext';
 
 export default function ChatView() {
   const { phone } = useLocalSearchParams();
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState<any>(null);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [renameModal, setRenameModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const scrollViewRef = useRef(null);
+  const scrollViewRef = useRef<any>(null);
   const { apiUrl } = useApi();
   const insets = useSafeAreaInsets();
 
@@ -75,7 +75,7 @@ export default function ChatView() {
     setSending(true);
     
     const tempMsg = { role: 'user', content: message, timestamp: new Date() };
-    setSession(prev => ({ ...prev, history: [...prev.history, tempMsg] }));
+    setSession((prev: any) => ({ ...prev, history: [...prev.history, tempMsg] }));
     setMessage('');
 
     try {
@@ -139,12 +139,27 @@ export default function ChatView() {
         contentContainerStyle={{ padding: 10 }}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
-        {session.history && session.history.filter(m => m.role !== 'system').map((msg, i) => (
-          <View key={i} style={[styles.bubble, msg.role === 'assistant' ? styles.bubbleBot : styles.bubbleUser]}>
-            <Text style={styles.msgText}>{msg.content}</Text>
-          </View>
-        ))}
+        {session.history && session.history.filter((m: any) => m.role !== 'system').map((msg: any, i: number) => {
+          const timeString = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          return (
+            <View key={i} style={[styles.bubble, msg.role === 'assistant' ? styles.bubbleBot : styles.bubbleUser]}>
+              <Text style={styles.msgText}>{msg.content}</Text>
+              {timeString ? <Text style={styles.timeText}>{timeString}</Text> : null}
+            </View>
+          );
+        })}
       </ScrollView>
+
+      <View style={{ paddingHorizontal: 10, paddingBottom: 5, flexDirection: 'row' }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <TouchableOpacity 
+            style={{ backgroundColor: '#374151', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 15, marginRight: 8 }}
+            onPress={() => setMessage('Thank you for your message. We will get back to you shortly!')}
+          >
+            <Text style={{ color: '#d1d5db', fontSize: 13 }}>Auto Reply: "Thank you..."</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       <View style={[styles.inputArea, { paddingBottom: Math.max(10, insets.bottom) }]}>
         <TouchableOpacity 
@@ -225,6 +240,7 @@ const styles = StyleSheet.create({
   bubbleUser: { backgroundColor: '#1f2937', alignSelf: 'flex-start', borderBottomLeftRadius: 2 },
   bubbleBot: { backgroundColor: '#2563eb', alignSelf: 'flex-end', borderBottomRightRadius: 2 },
   msgText: { color: '#fff', fontSize: 15 },
+  timeText: { color: 'rgba(255, 255, 255, 0.6)', fontSize: 11, alignSelf: 'flex-end', marginTop: 4 },
   inputArea: { flexDirection: 'row', padding: 10, borderTopWidth: 1, borderTopColor: '#333', alignItems: 'center' },
   emojiBtn: { padding: 10, marginRight: 5 },
   emojiBtnText: { fontSize: 24 },

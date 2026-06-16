@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '../context/ApiContext';
 
 export default function Dashboard() {
-  const [sessions, setSessions] = useState([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [newPhone, setNewPhone] = useState('');
@@ -29,7 +29,7 @@ export default function Dashboard() {
       const data = await res.json();
       setSessions(data);
       setFetchError('');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setFetchError(err.message || 'Failed to connect to API');
     } finally {

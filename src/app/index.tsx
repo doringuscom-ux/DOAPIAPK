@@ -64,9 +64,14 @@ export default function Dashboard() {
         options={{ 
           title: 'Chats',
           headerRight: () => (
-            <TouchableOpacity onPress={() => setApiModalVisible(true)}>
-              <Text style={{color: '#4ade80', fontWeight: 'bold', marginRight: 15}}>⚙️ APIs</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => router.push('/broadcast' as any)} style={{ marginRight: 20 }}>
+                <Text style={{color: '#eab308', fontWeight: 'bold'}}>📢 Broadcast</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setApiModalVisible(true)}>
+                <Text style={{color: '#4ade80', fontWeight: 'bold', marginRight: 15}}>⚙️ APIs</Text>
+              </TouchableOpacity>
+            </View>
           )
         }} 
       />

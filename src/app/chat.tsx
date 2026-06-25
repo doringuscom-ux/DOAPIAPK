@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Keyboard, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { EmojiKeyboard } from 'rn-emoji-keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -80,7 +80,7 @@ export default function ChatView() {
     setSending(true);
     
     const tempMsg = { role: 'user', content: message, timestamp: new Date() };
-    setSession((prev: any) => ({ ...prev, history: [...prev.history, tempMsg] }));
+    setSession((prev: any) => ({ ...prev, history: [...(prev?.history || []), tempMsg] }));
     setMessage('');
 
     try {
@@ -184,10 +184,10 @@ export default function ChatView() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}>
       <Stack.Screen 
         options={{ 
-          title: session.name ? session.name : (Array.isArray(phone) ? phone[0] : phone),
+          title: session?.name ? session.name : (Array.isArray(phone) ? phone[0] : phone),
           headerRight: () => (
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
-              <TouchableOpacity onPress={() => { setNewName(session.name || ''); setRenameModal(true); }}>
+              <TouchableOpacity onPress={() => { setNewName(session?.name || ''); setRenameModal(true); }}>
                 <Text style={{color: '#4ade80', fontWeight: 'bold'}}>Rename</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={deleteChat} style={{marginRight: 15}}>
@@ -199,8 +199,8 @@ export default function ChatView() {
       />
       
       <View style={styles.controls}>
-        <TouchableOpacity style={[styles.btn, session.aiEnabled ? styles.btnActive : styles.btnDanger]} onPress={toggleAI}>
-          <Text style={styles.btnText}>{session.aiEnabled ? 'AI is ON' : 'AI is OFF'}</Text>
+        <TouchableOpacity style={[styles.btn, session?.aiEnabled ? styles.btnActive : styles.btnDanger]} onPress={toggleAI}>
+          <Text style={styles.btnText}>{session?.aiEnabled ? 'AI is ON' : 'AI is OFF'}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.btn, isPaused ? styles.btnWarning : styles.btnSecondary]} onPress={togglePause}>
           <Text style={styles.btnText}>{isPaused ? 'Resume AI' : 'Pause 5m'}</Text>
@@ -213,7 +213,7 @@ export default function ChatView() {
         contentContainerStyle={{ padding: 10 }}
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
-        {session.history && session.history.filter((m: any) => m.role !== 'system').map((msg: any, i: number) => {
+        {Array.isArray(session?.history) && session.history.filter((m: any) => m.role !== 'system').map((msg: any, i: number) => {
           const timeString = msg.timestamp ? new Date(msg.timestamp).toLocaleDateString() + ' ' + new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
           
           let statusIcon = null;

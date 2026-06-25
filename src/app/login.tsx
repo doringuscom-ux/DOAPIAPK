@@ -174,7 +174,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {!isChangePasswordMode && apiList.length > 0 && (
+        {!isChangePasswordMode && Array.isArray(apiList) && apiList.length > 0 && (
           <View style={styles.savedAccountsSection}>
             <Text style={styles.savedAccountsTitle}>Saved Accounts</Text>
             {apiList.map((item: any) => (

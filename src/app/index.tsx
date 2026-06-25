@@ -14,7 +14,7 @@ export default function Dashboard() {
   const [fetchError, setFetchError] = useState('');
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { apiUrl, apiPassword, setActiveApi, setApiPassword } = useApi();
+  const { apiUrl, apiPassword, setActiveApi, setApiPassword, isInitialized } = useApi();
 
   const fetchSessions = async () => {
     if (!apiUrl) {
@@ -32,7 +32,11 @@ export default function Dashboard() {
       }
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
-      setSessions(data);
+      if (Array.isArray(data)) {
+        setSessions(data);
+      } else {
+        setSessions([]);
+      }
       setFetchError('');
     } catch (err: any) {
       console.error(err);
@@ -53,14 +57,15 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [apiUrl]);
 
-  if (loading) {
+  if (!isInitialized || loading) {
     return <View style={styles.center}><ActivityIndicator size="large" color="#4ade80" /></View>;
   }
 
-  const filteredSessions = sessions.filter(s => 
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
+  const filteredSessions = safeSessions.filter(s => 
     (s.phone && String(s.phone).includes(searchQuery)) || 
-    (s.name && s.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (s.lastMessage && s.lastMessage.toLowerCase().includes(searchQuery.toLowerCase()))
+    (s.name && String(s.name).toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (s.lastMessage && String(s.lastMessage).toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (

@@ -18,10 +18,11 @@ export const ApiContext = createContext({
   apiUrl: '',
   apiPassword: '',
   apiList: [] as any[],
-  setActiveApi: (url: string) => {},
-  setApiPassword: (pwd: string) => {},
-  addApi: (name: string, url: string) => {},
-  removeApi: (url: string) => {}
+  isInitialized: false,
+  setActiveApi: async (url: string) => {},
+  setApiPassword: async (pwd: string) => {},
+  addApi: async (name: string, url: string) => {},
+  removeApi: async (url: string) => {}
 });
 
 export const useApi = () => useContext(ApiContext);
@@ -59,6 +60,7 @@ export const ApiProvider = ({ children }: { children: React.ReactNode }) => {
   const [apiPassword, setApiPasswordState] = useState<string>('1234');
   const [apiList, setApiList] = useState<any[]>([]);
   const [pushToken, setPushToken] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
   useEffect(() => {
     loadData();
@@ -86,9 +88,16 @@ export const ApiProvider = ({ children }: { children: React.ReactNode }) => {
       const storedList = await AsyncStorage.getItem('@api_list');
       if (storedUrl) setApiUrlState(storedUrl);
       if (storedPwd) setApiPasswordState(storedPwd);
-      if (storedList) setApiList(JSON.parse(storedList));
+      if (storedList) {
+        const parsed = JSON.parse(storedList);
+        if (Array.isArray(parsed)) {
+          setApiList(parsed);
+        }
+      }
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsInitialized(true);
     }
   };
 
@@ -121,7 +130,7 @@ export const ApiProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <ApiContext.Provider value={{ apiUrl, apiPassword, apiList, setActiveApi, setApiPassword, addApi, removeApi }}>
+    <ApiContext.Provider value={{ apiUrl, apiPassword, apiList, isInitialized, setActiveApi, setApiPassword, addApi, removeApi }}>
       {children}
     </ApiContext.Provider>
   );

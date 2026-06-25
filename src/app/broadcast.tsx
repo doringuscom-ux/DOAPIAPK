@@ -1,18 +1,61 @@
 import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, FlatList, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, TextInput, FlatList, Alert, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '../context/ApiContext';
 
 export default function Broadcast() {
-  const { apiUrl } = useApi();
+  const { apiUrl, apiPassword } = useApi();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   
   const [templates, setTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [headerImage, setHeaderImage] = useState('');
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [bodyVars, setBodyVars] = useState<string[]>([]);
   const [numbersInput, setNumbersInput] = useState('');
   const [isBroadcasting, setIsBroadcasting] = useState(false);
+
+  const handleSelectTemplate = (item: any) => {
+    setSelectedTemplate(item);
+    setHeaderImage('');
+    setSelectedImageUri(null);
+    setImageBase64(null);
+    const bodyComponent = item.components?.find((c: any) => c.type === 'BODY');
+    if (bodyComponent && bodyComponent.text) {
+      const matches = bodyComponent.text.match(/\{\{\d+\}\}/g);
+      if (matches) {
+        // Find unique matches or highest number to be safe? Simple count is enough usually if they are {{1}}, {{2}} in order.
+        // Actually, matching unique variables is safer, but matches.length works if they don't repeat.
+        // To be safe, we just use the count of matches. If {{1}} repeats, Meta API wants parameter for each occurrence?
+        // Wait, Meta API requires parameters in the exact order they appear in the text. So if it appears 3 times, pass 3 parameters.
+        setBodyVars(new Array(matches.length).fill(''));
+      } else {
+        setBodyVars([]);
+      }
+    } else {
+      setBodyVars([]);
+    }
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      setSelectedImageUri(result.assets[0].uri);
+      setImageBase64(result.assets[0].base64 || null);
+    }
+  };
 
   useEffect(() => {
     if (apiUrl) {
@@ -21,9 +64,15 @@ export default function Broadcast() {
   }, [apiUrl]);
 
   const fetchTemplates = async () => {
+    if (!apiUrl) {
+      setLoadingTemplates(false);
+      return;
+    }
     try {
       setLoadingTemplates(true);
-      const res = await fetch(`${apiUrl}/api/templates`);
+      const res = await fetch(`${apiUrl}/api/templates`, {
+        headers: { 'x-api-password': apiPassword }
+      });
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
       if (Array.isArray(data)) {
@@ -33,15 +82,25 @@ export default function Broadcast() {
       }
     } catch (err: any) {
       console.error('Failed to fetch templates:', err.message);
-      Alert.alert('Error', 'Failed to load templates from Meta. Please check backend WABA_ID.');
+      if (Platform.OS === 'web') {
+        window.alert('Failed to load templates. Check if your backend is running.');
+      } else {
+        Alert.alert('Error', 'Failed to load templates. Check if your backend is running.');
+      }
     } finally {
       setLoadingTemplates(false);
     }
   };
 
   const handleFetchSessions = async () => {
+    if (!apiUrl) {
+      Alert.alert('Error', 'API URL is not configured.');
+      return;
+    }
     try {
-      const res = await fetch(`${apiUrl}/api/sessions`);
+      const res = await fetch(`${apiUrl}/api/sessions`, {
+        headers: { 'x-api-password': apiPassword }
+      });
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
       const allPhones = data.map((s: any) => s.phone).filter(Boolean);
@@ -58,6 +117,16 @@ export default function Broadcast() {
       return;
     }
     
+    if (selectedTemplate.components?.some((c: any) => c.type === 'HEADER' && c.format === 'IMAGE') && !selectedImageUri) {
+      Alert.alert('Error', 'Please choose an image from gallery.');
+      return;
+    }
+    
+    if (bodyVars.some(v => !v.trim())) {
+      Alert.alert('Error', 'Please fill all template variables.');
+      return;
+    }
+
     if (!numbersInput.trim()) {
       Alert.alert('Error', 'Please enter at least one phone number.');
       return;
@@ -81,15 +150,48 @@ export default function Broadcast() {
           onPress: async () => {
             try {
               setIsBroadcasting(true);
+              
+              let finalImageUrl = headerImage;
+              
+              if (imageBase64) {
+                const uploadRes = await fetch(`${apiUrl}/api/upload`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-password': apiPassword
+                  },
+                  body: JSON.stringify({ image: `data:image/jpeg;base64,${imageBase64}` }),
+                });
+                
+                if (!uploadRes.ok) throw new Error('Image upload failed');
+                const uploadData = await uploadRes.json();
+                finalImageUrl = uploadData.url;
+              }
+
+              const apiComponents = [];
+              if (finalImageUrl) {
+                apiComponents.push({
+                  type: 'header',
+                  parameters: [{ type: 'image', image: { link: finalImageUrl.trim() } }]
+                });
+              }
+              if (bodyVars.length > 0) {
+                apiComponents.push({
+                  type: 'body',
+                  parameters: bodyVars.map(v => ({ type: 'text', text: v.trim() }))
+                });
+              }
+
               const payload = {
                 templateName: selectedTemplate.name,
                 languageCode: selectedTemplate.language || 'en',
-                numbers: numbersArray
+                numbers: numbersArray,
+                components: apiComponents
               };
               
               const res = await fetch(`${apiUrl}/api/broadcast`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-api-password': apiPassword },
                 body: JSON.stringify(payload)
               });
               
@@ -110,13 +212,29 @@ export default function Broadcast() {
   };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <Stack.Screen options={{ title: 'Broadcast Message', headerTintColor: '#4ade80' }} />
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={{ marginBottom: 15 }}>
+        <Text style={styles.title}>New Broadcast</Text>
+      </View>
+
+      <TouchableOpacity 
+        style={styles.statusBtn} 
+        onPress={() => router.push('/broadcast-status')}
+      >
+        <Text style={styles.statusBtnText}>📊 View Broadcast History & Status</Text>
+      </TouchableOpacity>
       
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>1. Select Approved Template</Text>
-        {loadingTemplates ? (
-          <ActivityIndicator size="small" color="#4ade80" />
+        {!apiUrl ? (
+          <Text style={styles.errorText}>API URL is not configured. Go back and set it in settings.</Text>
+        ) : loadingTemplates ? (
+          <View style={{ padding: 20, alignItems: 'center', justifyContent: 'center' }}>
+            <ActivityIndicator size="large" color="#4ade80" />
+            <Text style={{color: '#9ca3af', marginTop: 10}}>Loading templates from Meta...</Text>
+          </View>
         ) : templates.length === 0 ? (
           <Text style={styles.errorText}>No approved templates found on Meta.</Text>
         ) : (
@@ -131,7 +249,7 @@ export default function Broadcast() {
                   styles.templateCard,
                   selectedTemplate?.id === item.id && styles.templateCardSelected
                 ]}
-                onPress={() => setSelectedTemplate(item)}
+                onPress={() => handleSelectTemplate(item)}
               >
                 <Text style={styles.templateName}>{item.name}</Text>
                 <Text style={styles.templateLang}>{item.language}</Text>
@@ -149,10 +267,50 @@ export default function Broadcast() {
               {selectedTemplate.components?.find((c: any) => c.type === 'BODY')?.text || 'No preview available'}
             </Text>
           </View>
+          
+          <View style={{ marginTop: 15 }}>
+            {selectedTemplate.components?.some((c: any) => c.type === 'HEADER' && c.format === 'IMAGE') && (
+              <View style={{marginBottom: 15}}>
+                <Text style={styles.sectionTitle}>Image (Required)</Text>
+                {selectedImageUri ? (
+                  <View style={{alignItems: 'center', marginBottom: 10}}>
+                    <Image source={{ uri: selectedImageUri }} style={{ width: 200, height: 200, borderRadius: 10 }} />
+                    <TouchableOpacity onPress={() => setSelectedImageUri(null)} style={{marginTop: 10}}>
+                      <Text style={{color: '#ef4444'}}>Remove Image</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity style={styles.button} onPress={pickImage}>
+                    <Text style={styles.buttonText}>Choose Image from Gallery</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {bodyVars.length > 0 && (
+              <View style={{marginBottom: 15}}>
+                <Text style={styles.sectionTitle}>Template Variables</Text>
+                {bodyVars.map((v, i) => (
+                  <TextInput 
+                    key={i}
+                    style={[styles.numbersInput, { minHeight: 50, marginBottom: 10 }]} 
+                    placeholder={`Value for {{${i+1}}}`}
+                    placeholderTextColor="#6b7280"
+                    value={v}
+                    onChangeText={(text) => {
+                      const newVars = [...bodyVars];
+                      newVars[i] = text;
+                      setBodyVars(newVars);
+                    }}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
         </View>
       )}
 
-      <View style={[styles.section, { flex: 1 }]}>
+      <View style={styles.section}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text style={styles.sectionTitle}>2. Enter Numbers</Text>
           <TouchableOpacity onPress={handleFetchSessions}>
@@ -182,7 +340,8 @@ export default function Broadcast() {
           )}
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -192,6 +351,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#030712',
     padding: 15,
   },
+  title: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
+  statusBtn: { 
+    backgroundColor: '#1f2937', 
+    paddingHorizontal: 20, 
+    paddingVertical: 15, 
+    borderRadius: 12, 
+    alignItems: 'center',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#374151',
+    elevation: 5,
+  },
+  statusBtnText: { color: '#4ade80', fontWeight: 'bold', fontSize: 16 },
+  loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   section: {
     marginBottom: 20,
   },
@@ -243,7 +416,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   numbersInput: {
-    flex: 1,
+    minHeight: 150,
     backgroundColor: '#111827',
     color: '#fff',
     padding: 15,
@@ -266,5 +439,16 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  button: {
+    backgroundColor: '#374151',
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   }
 });

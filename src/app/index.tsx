@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, Modal, TextInput, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { useRouter, Stack, Redirect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '../context/ApiContext';
 
@@ -10,13 +11,10 @@ export default function Dashboard() {
   const [modalVisible, setModalVisible] = useState(false);
   const [newPhone, setNewPhone] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [apiModalVisible, setApiModalVisible] = useState(false);
-  const [newApiName, setNewApiName] = useState('');
-  const [newApiUrl, setNewApiUrl] = useState('https://');
   const [fetchError, setFetchError] = useState('');
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { apiUrl, apiList, setActiveApi, addApi, removeApi } = useApi();
+  const { apiUrl, apiPassword, setActiveApi, setApiPassword } = useApi();
 
   const fetchSessions = async () => {
     if (!apiUrl) {
@@ -24,7 +22,14 @@ export default function Dashboard() {
       return;
     }
     try {
-      const res = await fetch(`${apiUrl}/api/sessions`);
+      const res = await fetch(`${apiUrl}/api/sessions`, {
+        headers: { 'x-api-password': apiPassword }
+      });
+      if (res.status === 401) {
+        Alert.alert('Unauthorized', 'Invalid API Password. Please update it in Settings.');
+        setLoading(false);
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
       const data = await res.json();
       setSessions(data);
@@ -68,8 +73,11 @@ export default function Dashboard() {
               <TouchableOpacity onPress={() => router.push('/broadcast' as any)} style={{ marginRight: 20 }}>
                 <Text style={{color: '#eab308', fontWeight: 'bold'}}>📢 Broadcast</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setApiModalVisible(true)}>
-                <Text style={{color: '#4ade80', fontWeight: 'bold', marginRight: 15}}>⚙️ APIs</Text>
+              <TouchableOpacity onPress={() => {
+                setActiveApi('');
+                setApiPassword('');
+              }}>
+                <Text style={{color: '#ef4444', fontWeight: 'bold', marginRight: 15}}>🚪 Logout</Text>
               </TouchableOpacity>
             </View>
           )
@@ -77,12 +85,7 @@ export default function Dashboard() {
       />
       
       {!apiUrl ? (
-        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20}}>
-          <Text style={{color: '#fff', fontSize: 16, marginBottom: 20}}>No API Backend Configured.</Text>
-          <TouchableOpacity style={styles.btnStart} onPress={() => setApiModalVisible(true)}>
-            <Text style={styles.btnStartText}>Configure API Backend</Text>
-          </TouchableOpacity>
-        </View>
+        <Redirect href="/login" />
       ) : (
         <>
           <TextInput
@@ -176,57 +179,6 @@ export default function Dashboard() {
       </Modal>
         </>
       )}
-
-      {/* API Settings Modal */}
-      <Modal animationType="slide" transparent={true} visible={apiModalVisible} onRequestClose={() => setApiModalVisible(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Backend API Settings</Text>
-            
-            <FlatList
-              data={apiList}
-              keyExtractor={(item) => item.url}
-              style={{maxHeight: 200, marginBottom: 15}}
-              renderItem={({item}) => (
-                <TouchableOpacity 
-                  style={[{ flexDirection: 'row', alignItems: 'center', padding: 10, backgroundColor: '#111827', borderRadius: 8, marginBottom: 8 }, apiUrl === item.url && { borderColor: '#4ade80', borderWidth: 1 }]}
-                  onPress={() => setActiveApi(item.url)}
-                >
-                  <View style={{flex: 1}}>
-                    <Text style={{ color: '#fff', fontWeight: 'bold' }}>{item.name}</Text>
-                    <Text style={{ color: '#6b7280', fontSize: 12 }}>{item.url}</Text>
-                  </View>
-                  {apiUrl === item.url ? (
-                    <Text style={{color: '#4ade80', fontWeight: 'bold'}}>Active</Text>
-                  ) : (
-                    <TouchableOpacity onPress={() => removeApi(item.url)}>
-                      <Text style={{color: '#ef4444'}}>Delete</Text>
-                    </TouchableOpacity>
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-
-            <TextInput style={styles.input} placeholder="Account Name (e.g. Test Bot)" placeholderTextColor="#6b7280" value={newApiName} onChangeText={setNewApiName} />
-            <TextInput style={styles.input} placeholder="API URL (e.g. https://api.xyz.com)" placeholderTextColor="#6b7280" value={newApiUrl} onChangeText={setNewApiUrl} autoCapitalize="none" keyboardType="url" />
-            
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.btnCancel} onPress={() => setApiModalVisible(false)}>
-                <Text style={styles.btnCancelText}>Close</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.btnStart} onPress={() => {
-                if(newApiName && newApiUrl) {
-                  addApi(newApiName, newApiUrl);
-                  setNewApiName('');
-                  setNewApiUrl('https://');
-                }
-              }}>
-                <Text style={styles.btnStartText}>Add API</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
     </View>
   );

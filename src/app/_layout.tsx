@@ -13,6 +13,7 @@ export default function Layout() {
       }}>
         <Stack.Screen name="index" options={{ title: 'Digital ORRA Dashboard' }} />
         <Stack.Screen name="chat" options={{ title: 'Chat' }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
       </Stack>
     </ApiProvider>
   );

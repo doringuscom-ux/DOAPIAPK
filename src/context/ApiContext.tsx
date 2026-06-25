@@ -16,8 +16,10 @@ Notifications.setNotificationHandler({
 
 export const ApiContext = createContext({
   apiUrl: '',
+  apiPassword: '',
   apiList: [] as any[],
   setActiveApi: (url: string) => {},
+  setApiPassword: (pwd: string) => {},
   addApi: (name: string, url: string) => {},
   removeApi: (url: string) => {}
 });
@@ -52,9 +54,11 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
-export const ApiProvider = ({ children }: any) => {
-  const [apiUrl, setApiUrl] = useState('');
+export const ApiProvider = ({ children }: { children: React.ReactNode }) => {
+  const [apiUrl, setApiUrlState] = useState<string>(DEFAULT_API);
+  const [apiPassword, setApiPasswordState] = useState<string>('1234');
   const [apiList, setApiList] = useState<any[]>([]);
+  const [pushToken, setPushToken] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -78,8 +82,10 @@ export const ApiProvider = ({ children }: any) => {
   const loadData = async () => {
     try {
       const storedUrl = await AsyncStorage.getItem('@active_api');
+      const storedPwd = await AsyncStorage.getItem('@api_password');
       const storedList = await AsyncStorage.getItem('@api_list');
-      if (storedUrl) setApiUrl(storedUrl);
+      if (storedUrl) setApiUrlState(storedUrl);
+      if (storedPwd) setApiPasswordState(storedPwd);
       if (storedList) setApiList(JSON.parse(storedList));
     } catch (e) {
       console.error(e);
@@ -87,8 +93,13 @@ export const ApiProvider = ({ children }: any) => {
   };
 
   const setActiveApi = async (url: string) => {
-    setApiUrl(url);
+    setApiUrlState(url);
     await AsyncStorage.setItem('@active_api', url);
+  };
+
+  const setApiPassword = async (pwd: string) => {
+    setApiPasswordState(pwd);
+    await AsyncStorage.setItem('@api_password', pwd);
   };
 
   const addApi = async (name: string, url: string) => {
@@ -110,7 +121,7 @@ export const ApiProvider = ({ children }: any) => {
   };
 
   return (
-    <ApiContext.Provider value={{ apiUrl, apiList, setActiveApi, addApi, removeApi }}>
+    <ApiContext.Provider value={{ apiUrl, apiPassword, apiList, setActiveApi, setApiPassword, addApi, removeApi }}>
       {children}
     </ApiContext.Provider>
   );

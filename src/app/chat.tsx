@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Modal, Keyboard } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { EmojiKeyboard } from 'rn-emoji-keyboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApi } from '../context/ApiContext';
@@ -13,14 +13,19 @@ export default function ChatView() {
   const [renameModal, setRenameModal] = useState(false);
   const [newName, setNewName] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const scrollViewRef = useRef<any>(null);
-  const { apiUrl } = useApi();
+  const router = useRouter();
+  const { apiUrl, apiPassword } = useApi();
   const insets = useSafeAreaInsets();
 
   const fetchChat = async () => {
     if (!apiUrl) return;
     try {
-      const res = await fetch(`${apiUrl}/api/chats/${phone}`);
+      const res = await fetch(`${apiUrl}/api/chats/${phone}`, {
+        headers: { 'x-api-password': apiPassword }
+      });
       const data = await res.json();
       if (!data.error) {
         setSession(data);
@@ -45,7 +50,7 @@ export default function ChatView() {
     try {
       await fetch(`${apiUrl}/api/toggle-ai`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-password': apiPassword },
         body: JSON.stringify({ to: phone, aiEnabled: !session.aiEnabled })
       });
       fetchChat();
@@ -61,7 +66,7 @@ export default function ChatView() {
       const endpoint = isPaused ? '/api/resume' : '/api/pause';
       await fetch(`${apiUrl}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-password': apiPassword },
         body: JSON.stringify({ to: phone })
       });
       fetchChat();
@@ -79,9 +84,9 @@ export default function ChatView() {
     setMessage('');
 
     try {
-      await fetch(`${apiUrl}/send-message`, {
+      await fetch(`${apiUrl}/api/chats/${phone}/reply`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-password': apiPassword },
         body: JSON.stringify({ to: phone, message: tempMsg.content })
       });
       fetchChat();
@@ -101,7 +106,7 @@ export default function ChatView() {
     try {
       await fetch(`${apiUrl}/api/sessions/name`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-api-password': apiPassword },
         body: JSON.stringify({ to: phone, name: newName })
       });
       setRenameModal(false);
@@ -111,15 +116,84 @@ export default function ChatView() {
     }
   };
 
+  const deleteChat = () => {
+    Alert.alert('Delete Chat', 'Are you sure you want to delete the entire chat history?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await fetch(`${apiUrl}/api/chats/${phone}`, {
+              method: 'DELETE',
+              headers: { 'x-api-password': apiPassword }
+            });
+            router.replace('/');
+          } catch (err) {
+            console.error(err);
+          }
+        } 
+      }
+    ]);
+  };
+
+  const toggleSelection = (index: number) => {
+    const newSet = new Set(selectedIndices);
+    if (newSet.has(index)) {
+      newSet.delete(index);
+      if (newSet.size === 0) setIsSelectionMode(false);
+    } else {
+      newSet.add(index);
+    }
+    setSelectedIndices(newSet);
+  };
+
+  const handleLongPress = (index: number) => {
+    if (!isSelectionMode) {
+      setIsSelectionMode(true);
+      setSelectedIndices(new Set([index]));
+    }
+  };
+
+  const handlePress = (index: number) => {
+    if (isSelectionMode) {
+      toggleSelection(index);
+    }
+  };
+
+  const deleteSelected = async () => {
+    if (selectedIndices.size === 0) return;
+    Alert.alert('Delete Messages', `Delete ${selectedIndices.size} selected message(s)?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await fetch(`${apiUrl}/api/chats/${phone}/messages/bulk-delete`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-api-password': apiPassword },
+              body: JSON.stringify({ indices: Array.from(selectedIndices) })
+            });
+            setIsSelectionMode(false);
+            setSelectedIndices(new Set());
+            fetchChat();
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+    ]);
+  };
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80}>
       <Stack.Screen 
         options={{ 
           title: session.name ? session.name : (Array.isArray(phone) ? phone[0] : phone),
           headerRight: () => (
-            <TouchableOpacity onPress={() => { setNewName(session.name || ''); setRenameModal(true); }}>
-              <Text style={{color: '#4ade80', fontWeight: 'bold', marginRight: 15}}>Rename</Text>
-            </TouchableOpacity>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+              <TouchableOpacity onPress={() => { setNewName(session.name || ''); setRenameModal(true); }}>
+                <Text style={{color: '#4ade80', fontWeight: 'bold'}}>Rename</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={deleteChat} style={{marginRight: 15}}>
+                <Text style={{color: '#ef4444', fontSize: 18}}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
           )
         }} 
       />
@@ -140,12 +214,49 @@ export default function ChatView() {
         onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
       >
         {session.history && session.history.filter((m: any) => m.role !== 'system').map((msg: any, i: number) => {
-          const timeString = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          const timeString = msg.timestamp ? new Date(msg.timestamp).toLocaleDateString() + ' ' + new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          
+          let statusIcon = null;
+          if (msg.role === 'assistant') {
+            switch (msg.status) {
+              case 'sent': statusIcon = <Text style={{color: '#9ca3af', fontSize: 10, marginLeft: 5}}>✓</Text>; break;
+              case 'delivered': statusIcon = <Text style={{color: '#9ca3af', fontSize: 10, marginLeft: 5}}>✓✓</Text>; break;
+              case 'read': statusIcon = <Text style={{color: '#3b82f6', fontSize: 10, marginLeft: 5}}>✓✓</Text>; break;
+              case 'failed': statusIcon = <Text style={{color: '#ef4444', fontSize: 10, marginLeft: 5}}>❌</Text>; break;
+              default: statusIcon = <Text style={{color: '#6b7280', fontSize: 10, marginLeft: 5}}>⌚</Text>; break;
+            }
+          }
+
           return (
-            <View key={i} style={[styles.bubble, msg.role === 'assistant' ? styles.bubbleBot : styles.bubbleUser]}>
-              <Text style={styles.msgText}>{msg.content}</Text>
-              {timeString ? <Text style={styles.timeText}>{timeString}</Text> : null}
-            </View>
+            <TouchableOpacity 
+              key={i} 
+              onLongPress={() => handleLongPress(i)} 
+              onPress={() => handlePress(i)}
+              activeOpacity={0.8}
+              style={{
+                flexDirection: msg.role === 'assistant' ? 'row-reverse' : 'row',
+                alignItems: 'center',
+                backgroundColor: selectedIndices.has(i) ? 'rgba(74, 222, 128, 0.15)' : 'transparent',
+                marginVertical: 2,
+                paddingVertical: 2,
+                borderRadius: 8,
+              }}
+            >
+              {isSelectionMode && (
+                <View style={{width: 20, height: 20, borderRadius: 10, borderWidth: 1, borderColor: '#4ade80', marginHorizontal: 10, alignItems: 'center', justifyContent: 'center'}}>
+                  {selectedIndices.has(i) && <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: '#4ade80'}} />}
+                </View>
+              )}
+              <View style={[styles.bubble, msg.role === 'assistant' ? styles.bubbleBot : styles.bubbleUser, { marginHorizontal: isSelectionMode ? 0 : 10 }]}>
+                <Text style={styles.msgText}>{msg.content}</Text>
+                {timeString ? (
+                  <View style={{flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 2}}>
+                    <Text style={styles.timeText}>{timeString}</Text>
+                    {statusIcon}
+                  </View>
+                ) : null}
+              </View>
+            </TouchableOpacity>
           );
         })}
       </ScrollView>
@@ -160,6 +271,20 @@ export default function ChatView() {
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {isSelectionMode && (
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', padding: 15, backgroundColor: '#1f2937', borderTopWidth: 1, borderTopColor: '#374151'}}>
+          <Text style={{color: '#fff', fontSize: 16, fontWeight: 'bold'}}>{selectedIndices.size} Selected</Text>
+          <View style={{flexDirection: 'row', gap: 20}}>
+            <TouchableOpacity onPress={() => { setIsSelectionMode(false); setSelectedIndices(new Set()); }}>
+              <Text style={{color: '#9ca3af', fontSize: 16}}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={deleteSelected}>
+              <Text style={{color: '#ef4444', fontSize: 16, fontWeight: 'bold'}}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <View style={[styles.inputArea, { paddingBottom: Math.max(10, insets.bottom) }]}>
         <TouchableOpacity 
